@@ -1,6 +1,7 @@
 # Vegahood -  Application
 
 A complete Instagram-style social media application built with Next.js, TypeScript, Supabase, Tailwind CSS, and shadcn/ui.
+For Admin protected route pass = admin123
 
 ## Features
 
