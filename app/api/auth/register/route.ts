@@ -32,17 +32,21 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const { data: existingUser } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', username)
-      .single()
+    try {
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', username)
+        .maybeSingle()
 
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'Username already taken' },
-        { status: 400 }
-      )
+      if (existingUser) {
+        return NextResponse.json(
+          { error: 'Username already taken' },
+          { status: 400 }
+        )
+      }
+    } catch (checkError: any) {
+      console.error('Error checking username (will proceed with signup):', checkError)
     }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({

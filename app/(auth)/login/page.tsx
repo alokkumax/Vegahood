@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { supabase } from '@/lib/supabaseClient'
 
 function LoginForm() {
   const router = useRouter()
@@ -36,32 +35,19 @@ function LoginForm() {
     setLoading(true)
 
     try {
-      let email = formData.email_or_username
-
-      if (!formData.email_or_username.includes('@')) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('email')
-          .eq('username', formData.email_or_username)
-          .single()
-
-        if (!profile || !profile.email) {
-          throw new Error('Invalid username or email')
-        }
-        email = profile.email
-      }
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: formData.password,
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_or_username: formData.email_or_username,
+          password: formData.password,
+        }),
       })
 
-      if (error) {
-        throw new Error(error.message)
-      }
+      const data = await res.json()
 
-      if (!data.session) {
-        throw new Error('Login failed - no session created')
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed')
       }
 
       await new Promise(resolve => setTimeout(resolve, 100))
