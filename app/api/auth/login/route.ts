@@ -15,6 +15,15 @@ export async function POST(request: NextRequest) {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase environment variables')
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
     const cookieStore = await cookies()
     const authCookies: Array<{ name: string; value: string; options?: any }> = []
 
@@ -43,7 +52,13 @@ export async function POST(request: NextRequest) {
           .maybeSingle()
 
         if (profileError) {
-          console.error('Profile lookup error:', profileError.message, profileError.code)
+          console.error('Profile lookup error:', {
+            message: profileError.message,
+            code: profileError.code,
+            details: profileError.details,
+            hint: profileError.hint
+          })
+          
           if (profileError.code === 'PGRST301' || profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
             return NextResponse.json(
               { error: 'Username lookup not available. Please use your email address to login.' },
@@ -69,14 +84,29 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    console.log('Attempting login with email:', email.substring(0, 3) + '***')
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
     if (error) {
+      console.error('Login error:', {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      })
       return NextResponse.json(
-        { error: error.message },
+        { error: error.message || 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+
+    if (!data.session) {
+      console.error('No session created after login')
+      return NextResponse.json(
+        { error: 'Login failed - no session created' },
         { status: 401 }
       )
     }

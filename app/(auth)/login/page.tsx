@@ -47,7 +47,13 @@ function LoginForm() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Login failed')
+        console.error('Login API error:', {
+          status: res.status,
+          statusText: res.statusText,
+          error: data.error,
+          data: data
+        })
+        throw new Error(data.error || `Login failed (${res.status})`)
       }
 
       await new Promise(resolve => setTimeout(resolve, 100))
