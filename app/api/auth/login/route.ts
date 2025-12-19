@@ -42,8 +42,10 @@ export async function POST(request: NextRequest) {
     })
 
     let email = email_or_username
+    let triedUsernameLookup = false
 
     if (!email_or_username.includes('@')) {
+      triedUsernameLookup = true
       try {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -60,27 +62,16 @@ export async function POST(request: NextRequest) {
           })
           
           if (profileError.code === 'PGRST301' || profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
-            return NextResponse.json(
-              { error: 'Username lookup not available. Please use your email address to login.' },
-              { status: 401 }
-            )
+            console.log('RLS blocking username lookup, will try username as email')
           }
         }
 
         if (profile && profile.email) {
           email = profile.email
-        } else {
-          return NextResponse.json(
-            { error: 'Invalid username or email' },
-            { status: 401 }
-          )
         }
       } catch (error: any) {
         console.error('Error checking username:', error)
-        return NextResponse.json(
-          { error: 'Unable to verify username. Please use your email address to login.' },
-          { status: 401 }
-        )
+        console.log('Will try username as email')
       }
     }
 
@@ -95,8 +86,17 @@ export async function POST(request: NextRequest) {
       console.error('Login error:', {
         message: error.message,
         status: error.status,
-        name: error.name
+        name: error.name,
+        triedUsernameLookup
       })
+      
+      if (triedUsernameLookup && !email_or_username.includes('@')) {
+        return NextResponse.json(
+          { error: 'Invalid username or password. If you registered with an email, please use your email address to login.' },
+          { status: 401 }
+        )
+      }
+      
       return NextResponse.json(
         { error: error.message || 'Invalid email or password' },
         { status: 401 }
