@@ -36,7 +36,13 @@ export default function RegisterPage() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Registration failed')
+        console.error('Registration API error:', {
+          status: res.status,
+          statusText: res.statusText,
+          error: data.error,
+          data: data
+        })
+        throw new Error(data.error || `Registration failed (${res.status})`)
       }
 
       toast({

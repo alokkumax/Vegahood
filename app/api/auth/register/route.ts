@@ -4,17 +4,65 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, username, full_name, password, bio } = await request.json()
+    let body
+    try {
+      body = await request.json()
+    } catch (parseError: any) {
+      console.error('JSON parse error:', parseError)
+      return NextResponse.json(
+        { error: 'Invalid request format. Please check your input.' },
+        { status: 400 }
+      )
+    }
+
+    const { email, username, full_name, password, bio } = body
+
+    console.log('Registration attempt:', {
+      email: email ? email.substring(0, 3) + '***' : 'missing',
+      username: username || 'missing',
+      full_name: full_name || 'missing',
+      password: password ? '***' : 'missing',
+      bio: bio ? 'present' : 'missing'
+    })
 
     if (!email || !username || !full_name || !password) {
+      const missing = []
+      if (!email) missing.push('email')
+      if (!username) missing.push('username')
+      if (!full_name) missing.push('full_name')
+      if (!password) missing.push('password')
+      
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: `Missing required fields: ${missing.join(', ')}` },
         { status: 400 }
       )
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Missing Supabase environment variables')
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      )
+    }
+
+    if (email && !email.includes('@')) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
+        { status: 400 }
+      )
+    }
+
+    if (password && password.length < 6) {
+      return NextResponse.json(
+        { error: 'Password must be at least 6 characters' },
+        { status: 400 }
+      )
+    }
+
     const cookieStore = await cookies()
     const authCookies: Array<{ name: string; value: string; options?: any }> = []
 
@@ -64,8 +112,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (authError) {
+      console.error('Supabase auth error:', {
+        message: authError.message,
+        status: authError.status,
+        name: authError.name
+      })
       return NextResponse.json(
-        { error: authError.message },
+        { error: authError.message || 'Registration failed. Please check your information and try again.' },
         { status: 400 }
       )
     }
