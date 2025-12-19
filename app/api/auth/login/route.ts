@@ -35,19 +35,38 @@ export async function POST(request: NextRequest) {
     let email = email_or_username
 
     if (!email_or_username.includes('@')) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', email_or_username)
-        .single()
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', email_or_username)
+          .maybeSingle()
 
-      if (!profile || !profile.email) {
+        if (profileError) {
+          console.error('Profile lookup error:', profileError.message, profileError.code)
+          if (profileError.code === 'PGRST301' || profileError.message?.includes('permission') || profileError.message?.includes('policy')) {
+            return NextResponse.json(
+              { error: 'Username lookup not available. Please use your email address to login.' },
+              { status: 401 }
+            )
+          }
+        }
+
+        if (profile && profile.email) {
+          email = profile.email
+        } else {
+          return NextResponse.json(
+            { error: 'Invalid username or email' },
+            { status: 401 }
+          )
+        }
+      } catch (error: any) {
+        console.error('Error checking username:', error)
         return NextResponse.json(
-          { error: 'Invalid username or email' },
+          { error: 'Unable to verify username. Please use your email address to login.' },
           { status: 401 }
         )
       }
-      email = profile.email
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({
